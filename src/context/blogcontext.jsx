@@ -1,177 +1,317 @@
-import { createContext, useContext, useState } from "react"
-import blogsData from "../data/blogs"
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react"
 
 const BlogContext = createContext()
 
-function getInitialBlogs() {
-  const savedBlogs = localStorage.getItem("blogs")
+const API_URL = "http://localhost:5000/api/blogs"
 
-  if (savedBlogs) {
-    return JSON.parse(savedBlogs)
+function getVisitorId() {
+  let visitorId = localStorage.getItem(
+    "blogVisitorId"
+  )
+
+  if (!visitorId) {
+    visitorId =
+      crypto.randomUUID()
+
+    localStorage.setItem(
+      "blogVisitorId",
+      visitorId
+    )
   }
 
-  return blogsData
-}
-
-function getInitialLikes() {
-  const savedLikes = localStorage.getItem("blogLikes")
-
-  if (savedLikes) {
-    return JSON.parse(savedLikes)
-  }
-
-  return {}
-}
-
-function getInitialBookmarks() {
-  const savedBookmarks = localStorage.getItem("blogBookmarks")
-
-  if (savedBookmarks) {
-    return JSON.parse(savedBookmarks)
-  }
-
-  return {}
-}
-
-function getInitialComments() {
-  const savedComments = localStorage.getItem("blogComments")
-
-  if (savedComments) {
-    return JSON.parse(savedComments)
-  }
-
-  return {}
+  return visitorId
 }
 
 export function BlogProvider({ children }) {
-  const [blogs, setBlogs] = useState(getInitialBlogs)
+  const [blogs, setBlogs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
-  const [likes, setLikes] = useState(
-    getInitialLikes
+  const [visitorId] = useState(
+    () => getVisitorId()
   )
 
-  const [bookmarks, setBookmarks] = useState(
-    getInitialBookmarks
-  )
+  const fetchBlogs = async () => {
+    try {
+      setLoading(true)
+      setError("")
 
-  const [comments, setComments] = useState(
-    getInitialComments
-  )
+      const response = await fetch(API_URL)
 
-  const saveBlogs = (updatedBlogs) => {
-    localStorage.setItem(
-      "blogs",
-      JSON.stringify(updatedBlogs)
-    )
+      if (!response.ok) {
+        throw new Error(
+          "Failed to fetch blogs"
+        )
+      }
 
-    setBlogs(updatedBlogs)
+      const data = await response.json()
+
+      setBlogs(data)
+    } catch (error) {
+      console.error(error)
+      setError("Unable to load blogs.")
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const addBlog = (newBlog) => {
-    saveBlogs([
-      ...blogs,
-      newBlog,
+  useEffect(() => {
+    fetchBlogs()
+  }, [])
+
+  const addBlog = async (newBlog) => {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(newBlog),
+    })
+
+    if (!response.ok) {
+      throw new Error(
+        "Failed to create blog"
+      )
+    }
+
+    const createdBlog =
+      await response.json()
+
+    setBlogs((currentBlogs) => [
+      ...currentBlogs,
+      createdBlog,
     ])
+
+    return createdBlog
   }
 
-  const deleteBlog = (id) => {
-    const updatedBlogs = blogs.filter(
-      (blog) => blog.id !== id
+  const deleteBlog = async (id) => {
+    const response = await fetch(
+      `${API_URL}/${id}`,
+      {
+        method: "DELETE",
+      }
     )
 
-    saveBlogs(updatedBlogs)
-  }
-
-  const updateBlog = (updatedBlog) => {
-    const updatedBlogs = blogs.map((blog) =>
-      blog.id === updatedBlog.id
-        ? updatedBlog
-        : blog
-    )
-
-    saveBlogs(updatedBlogs)
-  }
-
-  const toggleLike = (id) => {
-    const updatedLikes = {
-      ...likes,
-      [id]: !likes[id],
+    if (!response.ok) {
+      throw new Error(
+        "Failed to delete blog"
+      )
     }
 
-    setLikes(updatedLikes)
-
-    localStorage.setItem(
-      "blogLikes",
-      JSON.stringify(updatedLikes)
+    setBlogs((currentBlogs) =>
+      currentBlogs.filter(
+        (blog) => blog._id !== id
+      )
     )
   }
 
-  const toggleBookmark = (id) => {
-    const updatedBookmarks = {
-      ...bookmarks,
-      [id]: !bookmarks[id],
+  const updateBlog = async (updatedBlog) => {
+    const response = await fetch(
+      `${API_URL}/${updatedBlog._id}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedBlog),
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error(
+        "Failed to update blog"
+      )
     }
 
-    setBookmarks(updatedBookmarks)
+    const updatedData =
+      await response.json()
 
-    localStorage.setItem(
-      "blogBookmarks",
-      JSON.stringify(updatedBookmarks)
+    setBlogs((currentBlogs) =>
+      currentBlogs.map((blog) =>
+        blog._id === updatedData._id
+          ? updatedData
+          : blog
+      )
     )
+
+    return updatedData
   }
 
-  const addComment = (blogId, commentText) => {
-    const newComment = {
-      id: Date.now(),
-      text: commentText,
-      author: "Moazam",
-      date: new Date().toISOString(),
+  const toggleLike = async (id) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/${id}/like`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            visitorId,
+          }),
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(
+          "Failed to update like"
+        )
+      }
+
+      const updatedBlog =
+        await response.json()
+
+      setBlogs((currentBlogs) =>
+        currentBlogs.map((blog) =>
+          blog._id === updatedBlog._id
+            ? updatedBlog
+            : blog
+        )
+      )
+    } catch (error) {
+      console.error(error)
     }
-
-    const updatedComments = {
-      ...comments,
-      [blogId]: [
-        ...(comments[blogId] || []),
-        newComment,
-      ],
-    }
-
-    setComments(updatedComments)
-
-    localStorage.setItem(
-      "blogComments",
-      JSON.stringify(updatedComments)
-    )
   }
 
-  const deleteComment = (blogId, commentId) => {
-    const updatedComments = {
-      ...comments,
-      [blogId]: (comments[blogId] || []).filter(
-        (comment) => comment.id !== commentId
-      ),
+  const toggleBookmark = async (id) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/${id}/bookmark`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            visitorId,
+          }),
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(
+          "Failed to update bookmark"
+        )
+      }
+
+      const updatedBlog =
+        await response.json()
+
+      setBlogs((currentBlogs) =>
+        currentBlogs.map((blog) =>
+          blog._id === updatedBlog._id
+            ? updatedBlog
+            : blog
+        )
+      )
+    } catch (error) {
+      console.error(error)
     }
+  }
 
-    setComments(updatedComments)
+  const addComment = async (
+    blogId,
+    commentText
+  ) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/${blogId}/comments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            text: commentText,
+            author: "Moazam",
+            visitorId,
+          }),
+        }
+      )
 
-    localStorage.setItem(
-      "blogComments",
-      JSON.stringify(updatedComments)
-    )
+      if (!response.ok) {
+        throw new Error(
+          "Failed to add comment"
+        )
+      }
+
+      const updatedBlog =
+        await response.json()
+
+      setBlogs((currentBlogs) =>
+        currentBlogs.map((blog) =>
+          blog._id === updatedBlog._id
+            ? updatedBlog
+            : blog
+        )
+      )
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const deleteComment = async (
+    blogId,
+    commentId
+  ) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/${blogId}/comments/${commentId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            visitorId,
+          }),
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(
+          "Failed to delete comment"
+        )
+      }
+
+      const updatedBlog =
+        await response.json()
+
+      setBlogs((currentBlogs) =>
+        currentBlogs.map((blog) =>
+          blog._id === updatedBlog._id
+            ? updatedBlog
+            : blog
+        )
+      )
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   return (
     <BlogContext.Provider
       value={{
         blogs,
+        loading,
+        error,
+        fetchBlogs,
+
         addBlog,
         deleteBlog,
         updateBlog,
-        likes,
-        bookmarks,
+
+        visitorId,
+
         toggleLike,
         toggleBookmark,
-        comments,
+
         addComment,
         deleteComment,
       }}

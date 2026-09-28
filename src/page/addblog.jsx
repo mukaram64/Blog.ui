@@ -1,59 +1,110 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+
 import { useBlogs } from "../context/blogcontext"
 
 function AddBlog() {
   const navigate = useNavigate()
   const { addBlog } = useBlogs()
 
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [content, setContent] = useState("")
-  const [category, setCategory] = useState("React")
-  const [image, setImage] = useState("")
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    content: "",
+    author: "",
+    category: "",
+    image: "",
+    readTime: "",
+  })
 
+  const [imagePreview, setImagePreview] = useState("")
   const [errors, setErrors] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleChange = (event) => {
+    const { name, value } = event.target
+
+    setFormData((current) => ({
+      ...current,
+      [name]: value,
+    }))
+
+    setErrors((current) => ({
+      ...current,
+      [name]: "",
+      submit: "",
+    }))
+  }
 
   const handleImageChange = (event) => {
     const file = event.target.files[0]
 
-    if (!file) {
+    if (!file) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      setErrors((current) => ({
+        ...current,
+        image: "Image must be smaller than 2MB.",
+      }))
       return
     }
 
     const reader = new FileReader()
 
     reader.onloadend = () => {
-      setImage(reader.result)
+      const image = reader.result
+
+      setImagePreview(image)
+
+      setFormData((current) => ({
+        ...current,
+        image,
+      }))
+
+      setErrors((current) => ({
+        ...current,
+        image: "",
+      }))
     }
 
     reader.readAsDataURL(file)
   }
 
-  const validateForm = () => {
+  const validate = () => {
     const newErrors = {}
 
-    if (!title.trim()) {
-      newErrors.title = "Blog title is required."
-    } else if (title.trim().length < 5) {
-      newErrors.title =
-        "Title must be at least 5 characters."
+    if (!formData.title.trim()) {
+      newErrors.title = "Title is required."
     }
 
-    if (!description.trim()) {
+    if (!formData.description.trim()) {
       newErrors.description =
-        "Short description is required."
-    } else if (description.trim().length < 10) {
-      newErrors.description =
-        "Description must be at least 10 characters."
+        "Description is required."
     }
 
-    if (!content.trim()) {
+    if (!formData.content.trim()) {
       newErrors.content =
-        "Blog content is required."
-    } else if (content.trim().length < 20) {
-      newErrors.content =
-        "Content must be at least 20 characters."
+        "Content is required."
+    }
+
+    if (!formData.author.trim()) {
+      newErrors.author =
+        "Author is required."
+    }
+
+    if (!formData.category.trim()) {
+      newErrors.category =
+        "Category is required."
+    }
+
+    if (
+      formData.readTime &&
+      !formData.readTime
+        .toLowerCase()
+        .includes("min")
+    ) {
+      newErrors.readTime =
+        'Example: "3 min read"'
     }
 
     setErrors(newErrors)
@@ -61,275 +112,242 @@ function AddBlog() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
 
-    if (!validateForm()) {
-      return
+    if (submitting) return
+
+    if (!validate()) return
+
+    try {
+      setSubmitting(true)
+
+      await addBlog({
+        ...formData,
+        title: formData.title.trim(),
+        description:
+          formData.description.trim(),
+        content: formData.content.trim(),
+        author: formData.author.trim(),
+        category: formData.category.trim(),
+        readTime:
+          formData.readTime.trim() ||
+          "3 min read",
+        date: new Date().toISOString(),
+      })
+
+      navigate("/blogs")
+    } catch (error) {
+      console.error(error)
+
+      setErrors({
+        submit:
+          "Failed to create blog. Please try again.",
+      })
+    } finally {
+      setSubmitting(false)
     }
-
-    const newBlog = {
-      id: Date.now(),
-      title: title.trim(),
-      description: description.trim(),
-      content: content.trim(),
-      author: "Moazam",
-      category,
-      image,
-      date: new Date().toISOString(),
-      readTime: "3 min read",
-    }
-
-    addBlog(newBlog)
-
-    navigate("/blogs")
   }
 
   return (
-    <main className="min-h-screen bg-white px-6 py-16 transition-colors dark:bg-gray-950">
+    <main className="min-h-screen bg-gray-50 px-6 py-16 dark:bg-gray-950">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-10 text-center">
+          <p className="text-sm font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">
+            Create Content
+          </p>
 
-      <div className="mx-auto max-w-3xl">
+          <h1 className="mt-2 text-4xl font-bold text-gray-900 dark:text-white">
+            Add New Blog
+          </h1>
 
-        <p className="text-sm font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">
-          Create Content
-        </p>
-
-        <h1 className="mt-2 text-4xl font-bold text-gray-900 dark:text-white">
-          Add New Blog
-        </h1>
-
-        <p className="mt-3 text-gray-600 dark:text-gray-400">
-          Share your knowledge with the community.
-        </p>
+          <p className="mt-3 text-gray-600 dark:text-gray-400">
+            Create a new blog and save it directly to MongoDB.
+          </p>
+        </div>
 
         <form
           onSubmit={handleSubmit}
-          className="mt-10 space-y-6"
+          className="rounded-2xl bg-white p-8 shadow-sm dark:bg-gray-900"
         >
+          {errors.submit && (
+            <div className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
+              {errors.submit}
+            </div>
+          )}
 
-          <div>
-            <label
-              htmlFor="title"
-              className="mb-2 block font-semibold text-gray-800 dark:text-gray-200"
-            >
-              Blog Title
-            </label>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="md:col-span-2">
+              <label className="font-semibold text-gray-800 dark:text-gray-200">
+                Title
+              </label>
 
-            <input
-              id="title"
-              type="text"
-              value={title}
-              onChange={(event) => {
-                setTitle(event.target.value)
+              <input
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                placeholder="Enter blog title"
+                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              />
 
-                if (errors.title) {
-                  setErrors({
-                    ...errors,
-                    title: "",
-                  })
-                }
-              }}
-              placeholder="Enter blog title"
-              className={`w-full rounded-lg border bg-white px-4 py-3 text-gray-900 outline-none dark:bg-gray-900 dark:text-white ${
-                errors.title
-                  ? "border-red-500"
-                  : "border-gray-300 focus:border-blue-500 dark:border-gray-700"
-              }`}
-            />
-
-            <div className="mt-2 flex justify-between">
-
-              {errors.title ? (
-                <p className="text-sm text-red-500">
+              {errors.title && (
+                <p className="mt-1 text-sm text-red-500">
                   {errors.title}
                 </p>
-              ) : (
-                <span />
               )}
-
-              <span className="text-xs text-gray-400">
-                {title.length} characters
-              </span>
-
             </div>
-          </div>
 
-          <div>
-            <label
-              htmlFor="category"
-              className="mb-2 block font-semibold text-gray-800 dark:text-gray-200"
-            >
-              Category
-            </label>
+            <div className="md:col-span-2">
+              <label className="font-semibold text-gray-800 dark:text-gray-200">
+                Description
+              </label>
 
-            <select
-              id="category"
-              value={category}
-              onChange={(event) =>
-                setCategory(event.target.value)
-              }
-              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            >
-              <option value="React">
-                React
-              </option>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                rows="3"
+                placeholder="Short blog description"
+                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              />
 
-              <option value="JavaScript">
-                JavaScript
-              </option>
-
-              <option value="CSS">
-                CSS
-              </option>
-
-              <option value="Web Development">
-                Web Development
-              </option>
-
-              <option value="Technology">
-                Technology
-              </option>
-            </select>
-          </div>
-
-          <div>
-            <label
-              htmlFor="description"
-              className="mb-2 block font-semibold text-gray-800 dark:text-gray-200"
-            >
-              Short Description
-            </label>
-
-            <textarea
-              id="description"
-              rows="4"
-              value={description}
-              onChange={(event) => {
-                setDescription(event.target.value)
-
-                if (errors.description) {
-                  setErrors({
-                    ...errors,
-                    description: "",
-                  })
-                }
-              }}
-              placeholder="Write a short description..."
-              className={`w-full rounded-lg border bg-white px-4 py-3 text-gray-900 outline-none dark:bg-gray-900 dark:text-white ${
-                errors.description
-                  ? "border-red-500"
-                  : "border-gray-300 focus:border-blue-500 dark:border-gray-700"
-              }`}
-            />
-
-            <div className="mt-2 flex justify-between">
-
-              {errors.description ? (
-                <p className="text-sm text-red-500">
+              {errors.description && (
+                <p className="mt-1 text-sm text-red-500">
                   {errors.description}
                 </p>
-              ) : (
-                <span />
               )}
-
-              <span className="text-xs text-gray-400">
-                {description.length} characters
-              </span>
-
             </div>
-          </div>
 
-          <div>
-            <label
-              htmlFor="content"
-              className="mb-2 block font-semibold text-gray-800 dark:text-gray-200"
-            >
-              Full Blog Content
-            </label>
+            <div>
+              <label className="font-semibold text-gray-800 dark:text-gray-200">
+                Author
+              </label>
 
-            <textarea
-              id="content"
-              rows="12"
-              value={content}
-              onChange={(event) => {
-                setContent(event.target.value)
+              <input
+                type="text"
+                name="author"
+                value={formData.author}
+                onChange={handleChange}
+                placeholder="Author name"
+                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              />
 
-                if (errors.content) {
-                  setErrors({
-                    ...errors,
-                    content: "",
-                  })
-                }
-              }}
-              placeholder="Write your complete blog here..."
-              className={`w-full rounded-lg border bg-white px-4 py-3 text-gray-900 outline-none dark:bg-gray-900 dark:text-white ${
-                errors.content
-                  ? "border-red-500"
-                  : "border-gray-300 focus:border-blue-500 dark:border-gray-700"
-              }`}
-            />
+              {errors.author && (
+                <p className="mt-1 text-sm text-red-500">
+                  {errors.author}
+                </p>
+              )}
+            </div>
 
-            <div className="mt-2 flex justify-between">
+            <div>
+              <label className="font-semibold text-gray-800 dark:text-gray-200">
+                Category
+              </label>
 
-              {errors.content ? (
-                <p className="text-sm text-red-500">
+              <input
+                type="text"
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                placeholder="React, CSS, JavaScript..."
+                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              />
+
+              {errors.category && (
+                <p className="mt-1 text-sm text-red-500">
+                  {errors.category}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="font-semibold text-gray-800 dark:text-gray-200">
+                Read Time
+              </label>
+
+              <input
+                type="text"
+                name="readTime"
+                value={formData.readTime}
+                onChange={handleChange}
+                placeholder="3 min read"
+                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              />
+
+              {errors.readTime && (
+                <p className="mt-1 text-sm text-red-500">
+                  {errors.readTime}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="font-semibold text-gray-800 dark:text-gray-200">
+                Blog Image
+              </label>
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              />
+
+              {errors.image && (
+                <p className="mt-1 text-sm text-red-500">
+                  {errors.image}
+                </p>
+              )}
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="font-semibold text-gray-800 dark:text-gray-200">
+                Content
+              </label>
+
+              <textarea
+                name="content"
+                value={formData.content}
+                onChange={handleChange}
+                rows="12"
+                placeholder="Write your blog content..."
+                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              />
+
+              {errors.content && (
+                <p className="mt-1 text-sm text-red-500">
                   {errors.content}
                 </p>
-              ) : (
-                <span />
               )}
-
-              <span className="text-xs text-gray-400">
-                {content.length} characters
-              </span>
-
             </div>
           </div>
 
-          <div>
-            <label
-              htmlFor="image"
-              className="mb-2 block font-semibold text-gray-800 dark:text-gray-200"
-            >
-              Blog Image
-            </label>
-
-            <input
-              id="image"
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-            />
-          </div>
-
-          {image && (
-            <div>
-
-              <p className="mb-2 font-semibold text-gray-800 dark:text-gray-200">
+          {imagePreview && (
+            <div className="mt-6">
+              <p className="mb-3 font-semibold text-gray-800 dark:text-gray-200">
                 Image Preview
               </p>
 
               <img
-                src={image}
-                alt="Blog preview"
-                className="h-64 w-full rounded-xl object-cover"
+                src={imagePreview}
+                alt="Preview"
+                className="max-h-72 w-full rounded-xl object-cover"
               />
-
             </div>
           )}
 
           <button
             type="submit"
-            className="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
+            disabled={submitting}
+            className="mt-8 w-full rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Publish Blog
+            {submitting
+              ? "Publishing..."
+              : "Publish Blog"}
           </button>
-
         </form>
-
       </div>
-
     </main>
   )
 }

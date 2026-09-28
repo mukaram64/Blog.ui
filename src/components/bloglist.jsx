@@ -1,91 +1,108 @@
-import { useEffect, useState } from "react"
+import { useMemo, useState } from "react"
+
+import { useBlogs } from "../context/blogcontext"
 import BlogCard from "./blogcard"
 import Loading from "./loading"
 import ErrorState from "./errorstate"
-import { useBlogs } from "../context/blogcontext"
 
 function BlogList() {
-  const { blogs } = useBlogs()
+  const {
+    blogs,
+    loading,
+    error,
+  } = useBlogs()
 
   const [search, setSearch] = useState("")
-  const [author, setAuthor] = useState("All")
   const [category, setCategory] = useState("All")
+  const [author, setAuthor] = useState("All")
   const [sort, setSort] = useState("newest")
   const [currentPage, setCurrentPage] = useState(1)
 
   const blogsPerPage = 6
 
-  const authors = [
-    "All",
-    ...new Set(
-      blogs.map((blog) => blog.author)
-    ),
-  ]
+  const categories = useMemo(() => {
+    return [
+      "All",
+      ...new Set(
+        blogs
+          .map((blog) => blog.category)
+          .filter(Boolean)
+      ),
+    ]
+  }, [blogs])
 
-  const categories = [
-    "All",
-    ...new Set(
-      blogs.map(
-        (blog) => blog.category || "Other"
-      )
-    ),
-  ]
+  const authors = useMemo(() => {
+    return [
+      "All",
+      ...new Set(
+        blogs
+          .map((blog) => blog.author)
+          .filter(Boolean)
+      ),
+    ]
+  }, [blogs])
 
-  const filteredBlogs = blogs
-    .filter((blog) => {
+  const filteredBlogs = useMemo(() => {
+    let result = [...blogs]
 
-      const matchesSearch =
-        blog.title
+    if (search.trim()) {
+      const searchText = search.toLowerCase()
+
+      result = result.filter((blog) =>
+        `${blog.title} ${blog.description} ${blog.content} ${blog.author} ${blog.category}`
           .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        blog.description
-          .toLowerCase()
-          .includes(search.toLowerCase())
-
-      const matchesAuthor =
-        author === "All" ||
-        blog.author === author
-
-      const matchesCategory =
-        category === "All" ||
-        (blog.category || "Other") === category
-
-      return (
-        matchesSearch &&
-        matchesAuthor &&
-        matchesCategory
+          .includes(searchText)
       )
-    })
-    .sort((a, b) => {
+    }
 
-      if (sort === "newest") {
-        return (
+    if (category !== "All") {
+      result = result.filter(
+        (blog) => blog.category === category
+      )
+    }
+
+    if (author !== "All") {
+      result = result.filter(
+        (blog) => blog.author === author
+      )
+    }
+
+    if (sort === "newest") {
+      result.sort(
+        (a, b) =>
           new Date(b.date) -
           new Date(a.date)
-        )
-      }
+      )
+    }
 
-      if (sort === "oldest") {
-        return (
+    if (sort === "oldest") {
+      result.sort(
+        (a, b) =>
           new Date(a.date) -
           new Date(b.date)
-        )
-      }
+      )
+    }
 
-      if (sort === "titleAZ") {
-        return a.title.localeCompare(
-          b.title
-        )
-      }
+    if (sort === "title-az") {
+      result.sort((a, b) =>
+        a.title.localeCompare(b.title)
+      )
+    }
 
-      if (sort === "titleZA") {
-        return b.title.localeCompare(
-          a.title
-        )
-      }
+    if (sort === "title-za") {
+      result.sort((a, b) =>
+        b.title.localeCompare(a.title)
+      )
+    }
 
-      return 0
-    })
+    return result
+  }, [
+    blogs,
+    search,
+    category,
+    author,
+    sort,
+  ])
 
   const totalPages = Math.ceil(
     filteredBlogs.length / blogsPerPage
@@ -99,274 +116,200 @@ function BlogList() {
     startIndex + blogsPerPage
   )
 
-  useEffect(() => {
+  const handleSearch = (event) => {
+    setSearch(event.target.value)
     setCurrentPage(1)
-  }, [
-    search,
-    author,
-    category,
-    sort,
-  ])
+  }
 
-  useEffect(() => {
-    if (
-      totalPages > 0 &&
-      currentPage > totalPages
-    ) {
-      setCurrentPage(totalPages)
-    }
-  }, [
-    currentPage,
-    totalPages,
-  ])
+  const handleCategory = (event) => {
+    setCategory(event.target.value)
+    setCurrentPage(1)
+  }
 
-  const hasBlogs = blogs.length > 0
-  const hasResults = filteredBlogs.length > 0
+  const handleAuthor = (event) => {
+    setAuthor(event.target.value)
+    setCurrentPage(1)
+  }
 
-  if (blogs === null) {
+  const handleSort = (event) => {
+    setSort(event.target.value)
+    setCurrentPage(1)
+  }
+
+  if (loading) {
     return <Loading />
   }
 
-  if (!Array.isArray(blogs)) {
-    return (
-      <ErrorState
-        title="Unable to Load Blogs"
-        message="The blog data could not be loaded correctly."
-      />
-    )
+  if (error) {
+    return <ErrorState message={error} />
   }
 
   return (
-    <section className="bg-gray-50 px-6 py-16 transition-colors md:py-20 dark:bg-gray-950">
-
-      <div className="mx-auto max-w-6xl">
-
-        <div className="mb-10 text-center">
-
+    <section className="bg-gray-50 px-6 py-16 dark:bg-gray-950">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-10">
           <p className="text-sm font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">
-            Our Articles
+            Explore
           </p>
 
-          <h2 className="mt-2 text-3xl font-bold text-gray-900 md:text-4xl dark:text-white">
-            Latest Blogs
-          </h2>
+          <h1 className="mt-2 text-4xl font-bold text-gray-900 dark:text-white">
+            All Blogs
+          </h1>
 
-          <p className="mx-auto mt-3 max-w-2xl text-gray-600 dark:text-gray-400">
-            Explore our latest articles and learn something new every day.
+          <p className="mt-3 text-gray-600 dark:text-gray-400">
+            Discover articles about React, JavaScript,
+            CSS and modern web development.
           </p>
-
         </div>
 
-        {!hasBlogs ? (
+        <div className="mb-10 rounded-2xl bg-white p-5 shadow-sm dark:bg-gray-900">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <input
+              type="text"
+              value={search}
+              onChange={handleSearch}
+              placeholder="Search blogs..."
+              className="rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            />
 
-          <div className="rounded-2xl bg-white px-6 py-20 text-center shadow-sm dark:bg-gray-900">
-
-            <div className="text-6xl">
-              📝
-            </div>
-
-            <h3 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">
-              No Blogs Yet
-            </h3>
-
-            <p className="mx-auto mt-3 max-w-md text-gray-500 dark:text-gray-400">
-              There are no blog posts available right now.
-              Start by creating your first blog.
-            </p>
-
-          </div>
-
-        ) : (
-
-          <>
-
-            <div className="mb-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-
-              <input
-                type="text"
-                placeholder="Search blogs..."
-                value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
-                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              />
-
-              <select
-                value={author}
-                onChange={(event) =>
-                  setAuthor(event.target.value)
-                }
-                className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              >
-                {authors.map((item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
-                    Author: {item}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={category}
-                onChange={(event) =>
-                  setCategory(event.target.value)
-                }
-                className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              >
-                {categories.map((item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
-                    Category: {item}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={sort}
-                onChange={(event) =>
-                  setSort(event.target.value)
-                }
-                className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              >
-                <option value="newest">
-                  Newest First
-                </option>
-
-                <option value="oldest">
-                  Oldest First
-                </option>
-
-                <option value="titleAZ">
-                  Title A-Z
-                </option>
-
-                <option value="titleZA">
-                  Title Z-A
-                </option>
-              </select>
-
-            </div>
-
-            {!hasResults ? (
-
-              <div className="rounded-2xl bg-white px-6 py-20 text-center shadow-sm dark:bg-gray-900">
-
-                <div className="text-6xl">
-                  🔍
-                </div>
-
-                <h3 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">
-                  No Results Found
-                </h3>
-
-                <p className="mt-3 text-gray-500 dark:text-gray-400">
-                  Try changing your search or filters.
-                </p>
-
-                <button
-                  onClick={() => {
-                    setSearch("")
-                    setAuthor("All")
-                    setCategory("All")
-                    setSort("newest")
-                  }}
-                  className="mt-6 rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
+            <select
+              value={category}
+              onChange={handleCategory}
+              className="rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            >
+              {categories.map((item) => (
+                <option
+                  key={item}
+                  value={item}
                 >
-                  Clear Filters
-                </button>
+                  Category: {item}
+                </option>
+              ))}
+            </select>
 
-              </div>
+            <select
+              value={author}
+              onChange={handleAuthor}
+              className="rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            >
+              {authors.map((item) => (
+                <option
+                  key={item}
+                  value={item}
+                >
+                  Author: {item}
+                </option>
+              ))}
+            </select>
 
-            ) : (
+            <select
+              value={sort}
+              onChange={handleSort}
+              className="rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            >
+              <option value="newest">
+                Newest First
+              </option>
 
-              <>
+              <option value="oldest">
+                Oldest First
+              </option>
 
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <option value="title-az">
+                Title A-Z
+              </option>
 
-                  {currentBlogs.map((blog) => (
-                    <BlogCard
-                      key={blog.id}
-                      blog={blog}
-                    />
-                  ))}
+              <option value="title-za">
+                Title Z-A
+              </option>
+            </select>
+          </div>
+        </div>
 
-                </div>
+        {currentBlogs.length === 0 ? (
+          <div className="rounded-2xl bg-white px-6 py-16 text-center shadow-sm dark:bg-gray-900">
+            <div className="text-6xl">🔍</div>
 
-                {totalPages > 1 && (
+            <h2 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">
+              No Blogs Found
+            </h2>
 
-                  <div className="mt-12 flex flex-wrap items-center justify-center gap-2">
-
-                    <button
-                      onClick={() =>
-                        setCurrentPage(
-                          currentPage - 1
-                        )
-                      }
-                      disabled={
-                        currentPage === 1
-                      }
-                      className="rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-900"
-                    >
-                      ← Previous
-                    </button>
-
-                    {Array.from(
-                      {
-                        length: totalPages,
-                      },
-                      (_, index) =>
-                        index + 1
-                    ).map((page) => (
-
-                      <button
-                        key={page}
-                        onClick={() =>
-                          setCurrentPage(page)
-                        }
-                        className={`rounded-lg px-4 py-2 font-semibold ${
-                          currentPage === page
-                            ? "bg-blue-600 text-white"
-                            : "border border-gray-300 text-gray-700 hover:bg-white dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-900"
-                        }`}
-                      >
-                        {page}
-                      </button>
-
-                    ))}
-
-                    <button
-                      onClick={() =>
-                        setCurrentPage(
-                          currentPage + 1
-                        )
-                      }
-                      disabled={
-                        currentPage === totalPages
-                      }
-                      className="rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-900"
-                    >
-                      Next →
-                    </button>
-
-                  </div>
-
-                )}
-
-              </>
-
-            )}
-
-          </>
-
+            <p className="mt-3 text-gray-500 dark:text-gray-400">
+              Try changing your search or filters.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {currentBlogs.map((blog) => (
+              <BlogCard
+                key={blog._id}
+                blog={blog}
+              />
+            ))}
+          </div>
         )}
 
-      </div>
+        {totalPages > 1 && (
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-2">
+            <button
+              onClick={() =>
+                setCurrentPage((page) =>
+                  Math.max(page - 1, 1)
+                )
+              }
+              disabled={currentPage === 1}
+              className="rounded-lg border border-gray-300 px-4 py-2 font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
+            >
+              Previous
+            </button>
 
+            {Array.from(
+              { length: totalPages },
+              (_, index) => index + 1
+            ).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`rounded-lg px-4 py-2 font-semibold ${
+                  currentPage === page
+                    ? "bg-blue-600 text-white"
+                    : "border border-gray-300 text-gray-700 dark:border-gray-700 dark:text-gray-300"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              onClick={() =>
+                setCurrentPage((page) =>
+                  Math.min(
+                    page + 1,
+                    totalPages
+                  )
+                )
+              }
+              disabled={
+                currentPage === totalPages
+              }
+              className="rounded-lg border border-gray-300 px-4 py-2 font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
+            >
+              Next
+            </button>
+          </div>
+        )}
+
+        {filteredBlogs.length > 0 && (
+          <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+            Showing {startIndex + 1}-
+            {Math.min(
+              startIndex + blogsPerPage,
+              filteredBlogs.length
+            )}{" "}
+            of {filteredBlogs.length} blogs
+          </p>
+        )}
+      </div>
     </section>
   )
 }
