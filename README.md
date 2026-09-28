@@ -1,16 +1,69 @@
-# React + Vite
+# BlogApp
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern and responsive blog application built with React, Tailwind CSS, React Router and localStorage.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- 📝 Create blogs
+- ✏️ Edit blogs
+- 🗑️ Delete blogs
+- 🔍 Search blogs
+- 👤 Filter by author
+- 📚 Filter by category
+- 🔃 Sort blogs
+- 📄 Pagination
+- ❤️ Like blogs
+- 🔖 Bookmark blogs
+- 💬 Add and delete comments
+- 🌙 Dark mode
+- 💾 localStorage persistence
+- 📱 Responsive design
+- ⚠️ Error state
+- ⏳ Loading UI
+- 🔗 React Router navigation
+- 📅 Blog dates
+- ⏱️ Reading time
+- 🖼️ Image upload and preview
+- ❌ 404 page
 
-## React Compiler
+## Technologies
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React
+- Vite
+- Tailwind CSS
+- React Router
+- JavaScript
+- localStorage
 
-## Expanding the ESLint configuration
+## Project Structure
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```text
+src/
+├── components/
+│   ├── blogcard.jsx
+│   ├── bloglist.jsx
+│   ├── errorstate.jsx
+│   ├── footer.jsx
+│   ├── header.jsx
+│   ├── hero.jsx
+│   └── loading.jsx
+│
+├── context/
+│   ├── blogcontext.jsx
+│   └── themecontext.jsx
+│
+├── data/
+│   └── blogs.js
+│
+├── page/
+│   ├── addblog.jsx
+│   ├── blogdetails.jsx
+│   ├── blogs.jsx
+│   ├── bookmarks.jsx
+│   ├── editblog.jsx
+│   ├── home.jsx
+│   └── notfound.jsx
+│
+├── App.jsx
+├── index.css
+└── main.jsx
